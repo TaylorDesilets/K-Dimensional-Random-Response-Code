@@ -116,6 +116,60 @@ The results are then stored in a pandas data frame for further analysis.
 
   The output is returned as a pandas data frame, where each row corresponds to one simulation replicate.
 
+---
+
+### 4. RealDatasetStudy.py: Running our 3 Settings on a real Actuary Dataset to Compare Performance
+
+(NEED TO WRITE STILL)
+
+---
+
+### 5. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
+
+The main quantities of interest are:
+- Mean squared error (MSE) of the estimated regression coefficients  
+- Coverage probability (CP) of the confidence intervals  
+- Summary tables and plots across privacy settings and covariance structures  
+
+### Main Functions
+
+- **`compute_mse(B_hat, B_true)`**  
+  Computes the mean squared error between the estimated coefficient matrix and the true coefficient matrix.
+
+- **`compute_coverage(B_hat, cov, B_true, alpha=0.05)`**  
+  Computes the marginal Wald-type coverage probability for the regression coefficients.  
+  It returns the proportion of true coefficients covered by approximate 95% confidence intervals.
+
+- **`summarize_results(df)`**  
+  Aggregates the simulation results by covariance structure and privacy level \( \epsilon \).  
+  It returns the mean MSE and coverage probability for each method.
+
+- **`plot_results(df)`**  
+  Produces plots of:
+  - MSE versus \( \epsilon \)  
+  - Coverage probability versus \( \epsilon \)  
+
+  Separate plots are created for each covariance structure.
+
+
+### 6. main.py: Main Entry Point for Running the Evaluation
+
+NOTE: to run the entire loop, you only need to run this file
+
+- Sets the number of classes \(k\) and covariates \(d\)  
+- Defines the true coefficient matrix \(B_{\text{true}}\)  
+- Calls `run_simulation_study` to generate results across:
+  - multiple privacy levels \( \epsilon \)  
+  - multiple covariance structures  
+  - multiple simulation replicates  
+- Prints:
+  - the first few rows of the results  
+  - a summarized table of MSE and coverage  
+- Calls `plot_results` to visualize performance  
+
+
+
+
 
 
 
