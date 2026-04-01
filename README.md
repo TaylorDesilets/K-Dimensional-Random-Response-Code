@@ -1,6 +1,7 @@
 
 This repository contains the code used in the paper *“A Continuous Time Random Response Algorithm for Categorical Data”*, by Ce Zhang, Forough Fazeliasl, Linglong Kong, and Taylor Desilets.
 
+See the paper for more info on the real dataset chosen
 ---
 
 ### Running the Code
