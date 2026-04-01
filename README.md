@@ -151,6 +151,7 @@ The main quantities of interest are:
 
   Separate plots are created for each covariance structure.
 
+---
 
 ### 6. main.py: Main Entry Point for Running the Evaluation
 
