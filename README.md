@@ -118,9 +118,49 @@ The results are then stored in a pandas data frame for further analysis.
 
 ### 4. RealDatasetStudy.py: Running our 3 Settings on a real Actuary Dataset to Compare Performance
 
-(NEED TO WRITE STILL)
+We apply our privatized multinomial logistic regression to a real-world dataset to model predictors for Car Crashes. The goal is to model injury severity while comparing:
 
----
+- Non-private estimation  
+- Randomized response (RR) privatized estimation  
+
+Injury severity is collapsed into three categories:
+- 0: low / no injury  
+- 1: medium injury  
+- 2: fatal  
+
+### Data Processing
+
+The dataset is loaded from `person.csv` and processed as follows:
+- Injury severity (`INJ_SEV`) is mapped into 3 classes ( 0-low injury, 1-medium injury, 2-fatal injury)
+- A subset of predictors is selected:
+  - age  
+  - sex  
+  - alcohol involvement  
+  - drug involvement  
+- Age is standardized  
+- A random subsample is taken for computational efficiency  
+- Predictors are one-hot encoded  
+
+### Main Functions
+
+- **`prepare_real_data(filepath, sample_size, random_state)`**  
+  Loads and preprocesses the dataset, returning:
+  - predictor matrix \(X\)  
+  - response vector \(Y\)  
+  - processed DataFrame  
+
+- **`fit_private_model(X, Y, epsilon, seed)`**  
+  Applies randomized response to the labels and fits the privatized multinomial logistic regression model.
+
+- **`fit_nonprivate_model(X, Y)`**  
+  Fits the model without any privacy mechanism (baseline comparison).
+
+- **`run_real_data_analysis(filepath, sample_size, epsilon, random_state)`**  
+  Runs the full pipeline:
+  - prepares the data  
+  - fits private and non-private models  
+  - prints class counts and optimization results  
+  - returns all outputs  
 
 ### 5. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
 
