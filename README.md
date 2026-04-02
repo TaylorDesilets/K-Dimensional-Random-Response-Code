@@ -1,6 +1,6 @@
 
 This repository contains the code used in the paper *“A Continuous Time Random Response Algorithm for Categorical Data”*, by Ce Zhang, Forough Fazeliasl, Linglong Kong, and Taylor Desilets.
-
+See the paper for more info on the real dataset chosen
 ---
 
 ### Running the Code
@@ -162,6 +162,7 @@ The dataset is loaded from `person.csv` and processed as follows:
   - prints class counts and optimization results  
   - returns all outputs  
 
+---
 ### 5. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
 
 The main quantities of interest are:
