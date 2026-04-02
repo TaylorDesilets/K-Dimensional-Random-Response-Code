@@ -32,7 +32,7 @@ def run_simulation():
 def run_real():
     run_real_data_analysis(
         filepath="person.csv",
-        sample_size=10000,
+        sample_size=100000,
         epsilon=0.5,
         random_state=42
     )
@@ -51,4 +51,4 @@ def main(mode="simulation"):
 
 
 if __name__ == "__main__":
-    main(mode="real") 
+    main(mode="simulation") 

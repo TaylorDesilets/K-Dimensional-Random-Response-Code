@@ -140,7 +140,7 @@ def observed_probs(X, B, P):
     return Q
 
 
-def neg_loglik(beta_vec, X, Y_star, P, k,lambda_reg=1e-3):
+def neg_loglik(beta_vec, X, Y_star, P, k,lambda_reg=1e-1):
     """
     Negative log-likelihood for privatized multinomial logistic regression.
 

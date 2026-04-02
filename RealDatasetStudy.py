@@ -28,7 +28,7 @@ def load_person_data(filepath="person.csv"):
     return pd.read_csv(filepath, low_memory=False)
 
 
-def prepare_real_data(filepath="person.csv", sample_size=50000, random_state=42):
+def prepare_real_data(filepath="person.csv", sample_size=100000, random_state=42):
     df = load_person_data(filepath)
 
     df["Y"] = df["INJ_SEV"].apply(collapse_severity)
