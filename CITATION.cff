@@ -1,0 +1,12 @@
+
+
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Desilets
+    given-names: Taylor
+title: "k-Dimensional-Random-Response-Code"
+version: 2.0.4
+identifiers:
+  - type: doi
+date-released: 2026-04-01
