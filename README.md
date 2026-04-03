@@ -115,7 +115,7 @@ These scores are normalized row-wise to produce a valid transition matrix $P \in
 
 
  CLASS **`TransitionNet`**
-A small feedforward neural network that takes:
+A small neural network that takes:
 - one-hot encoding of the true label $Y$
 - one-hot encoding of the privatized label $Y^*$
 
