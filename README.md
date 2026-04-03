@@ -5,11 +5,19 @@ See the paper for more info on the real dataset chosen
 
 ### Running the Code
 
-To run the code, execute the following command in your terminal:
+To run the code, Select if youd like to run the real dataset study or our simulated data study. 
+
+execute the following command in your terminal to see our real dataset study:
 
 ```bash
-python main.py
+python main.py real
 ```
+
+execute the following command to view our simulated data study:
+```bash
+python main.py simulation
+```
+
 I will go over Each File in this Repository and each of their purposes.
 ---
 ### 1. RRAlgorithm.py: Implementation of Privatisation Mechanism
@@ -71,22 +79,110 @@ We compare three settings:
   - Fits the model using privatized data  
 
 - **`fit_orr_kdr(X, Y, epsilon, k, gamma=0.5, seed=None)`**  
-  Setting 3: Placeholder ORR-k-D-R method.  
-  - Uses a perturbed RR matrix  
-  - Projects rows onto the probability simplex  
-  - Simulates a learned privatization mechanism  
+  Setting 3: ORR-k-D-R (OUR METHOD)  
+ This function implements the **Optimal Randomized Response (ORR)** mechanism for the \(k\)-dimensional categorical setting by learning a data-driven transition matrix.
 
-### Helper Functions
+Procedure:
+- Fit a **non-private multinomial logistic regression** to obtain an initial estimate \( \hat{B} \).
+- Use a **neural network–based method** to learn an optimal transition matrix \( P_{\text{orr}} \), balancing privacy and utility via `gamma`.
+- Privatize the labels using the learned matrix: \( Y \rightarrow Y^* \).
+- Fit the **privatized MLR model** using \( Y^* \) and \( P_{\text{orr}} \).
+Returns:
+- `B_hat` — Estimated regression coefficients from the privatized model  
+- `P_orr` — Learned transition (randomization) matrix  
+- `Y_star` — Privatized labels  
+Notes:
+- Unlike standard RR, this method **learns the transition matrix** instead of using a fixed one.  
+- Designed to **optimize the privacy–utility tradeoff**.  
+- The parameter `gamma` controls the strength of the privacy penalty during learning.
 
 - **`project_rows_to_simplex(A)`**  
   Ensures each row is positive and sums to 1.
 
-- **`make_mock_orr_k_matrix(k, epsilon, gamma=0.5)`**  
-  Creates a modified RR matrix by perturbing the standard RR mechanism and re-normalizing.
+---
+### 3. NeuralNet.py: Implements our Neural Network for learning the most optimal transition matrix design P
+### Overview
+
+We parameterize the transition probabilities using a neural network  
+\[
+\hat{P}_{kj}(\theta) = f^\theta(Y = k, Y^* = j),
+\]
+where:
+- \(Y\) is the true label  
+- \(Y^*\) is the privatized label  
+- \(f^\theta\) is a neural network that outputs a score for each pair \((k,j)\)
+
+These scores are normalized row-wise to produce a valid transition matrix \(P \in \mathbb{R}^{k \times k}\), where each row sums to 1.
+
+
+ CLASS **`TransitionNet`**
+A small feedforward neural network that takes:
+- one-hot encoding of the true label \(Y\)
+- one-hot encoding of the privatized label \(Y^*\)
+
+and outputs a scalar score in \((0,1)\) representing the transition weight.
+
+
+**`build_transition_matrix`**
+Constructs the full transition matrix \(P\) by:
+- evaluating the network on all \((k,j)\) pairs  
+- applying a softmax across each row to ensure valid probabilities  
+
+
+
+Loss Functions
+
+- **Privacy loss**
+  - Penalizes large diagonal entries of \(P\)
+  - Intuition: high diagonal values reveal the true label too often  
+
+- **Utility loss**
+  - Penalizes large off-diagonal mass  
+  - Intuition: too much randomization destroys signal  
+
+
+
+**`learn_transition_matrix`**
+
+This is the main function that learns the optimal mechanism.
+
+**Objective:**
+\[
+\text{Loss} = -(1 - \gamma)\,\text{Privacy} + \gamma\,\text{Utility}
+\]
+
+- \(\gamma \in [0,1]\) controls the privacy–utility tradeoff  
+- Optimization is done using Adam  
+
+The function:
+1. Builds \(P(\theta)\) from the neural network  
+2. Computes privacy and utility losses  
+3. Updates network parameters via backpropagation  
+4. Returns the best transition matrix found during training  
+
+### Inputs
+
+- `k`: number of categories  
+- `beta`: MLR coefficients (used in privacy penalty)  
+- `gamma`: tradeoff parameter (default 0.5)  
+- `epochs`: number of training iterations  
+- `lr`: learning rate  
+
+### Output
+
+- `P` (numpy array of shape \(k \times k\)):  
+  learned transition matrix satisfying:
+  - non-negative entries  
+  - rows sum to 1  
+
+
+- If \(\gamma\) is small → prioritize **privacy** (more noise)  
+- If \(\gamma\) is large → prioritize **utility** (less distortion)  
+
+This replaces the infeasible “feasible region optimization” approach by learning a mechanism directly from data using a neural network.
 
 ---
-
-### 3. SimulationStudy.py: Runs Our 3 Settings on Simulated Data to Compare Performance
+### 4. SimulationStudy.py: Runs Our 3 Settings on Simulated Data to Compare Performance
 
 For each simulation run, the file:
 - Generates multinomial data  
@@ -116,7 +212,7 @@ The results are then stored in a pandas data frame for further analysis.
 
 ---
 
-### 4. RealDatasetStudy.py: Running our 3 Settings on a real Actuary Dataset to Compare Performance
+### 5. RealDatasetStudy.py: Running our 3 Settings on a real Actuary Dataset to Compare Performance
 
 We apply our privatized multinomial logistic regression to a real-world dataset to model predictors for Car Crashes. The goal is to model injury severity while comparing:
 
@@ -163,7 +259,7 @@ The dataset is loaded from `person.csv` and processed as follows:
   - returns all outputs  
 
 ---
-### 5. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
+### 6. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
 
 The main quantities of interest are:
 - Mean squared error (MSE) of the estimated regression coefficients  
@@ -192,7 +288,7 @@ The main quantities of interest are:
 
 ---
 
-### 6. main.py: Main Entry Point for Running the Evaluation
+### 7. main.py: Main Entry Point for Running the Evaluation
 
 NOTE: to run the entire loop, you only need to run this file, you need to input mode: "simulation" or "real" to run either the Simulated Data or the Real Dataset Implementation
 
