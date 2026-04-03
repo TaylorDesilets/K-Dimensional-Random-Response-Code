@@ -1,6 +1,7 @@
 
 import numpy as np
 from RRAlgorithm import fit_privatized_mlr, privatize_labels, make_rr_k_matrix
+from NeuralNet import learn_transition_matrix
 
 
 def fit_np(X, Y, k):
@@ -46,8 +47,12 @@ def make_mock_orr_k_matrix(k, epsilon, gamma=0.5):
 
 def fit_orr_kdr(X, Y, epsilon, k, gamma=0.5, seed=None):
     """
-    Setting 3: Placeholder ORR-k-D-R fit.
+    ORR-k-D-R with learned transition matrix
     """
-    P_orr = make_mock_orr_k_matrix(k, epsilon, gamma=gamma)
+    B_init, _, _ = fit_np(X, Y, k)
+
+    P_orr = learn_transition_matrix(k, B_init, gamma=gamma)
+
     Y_star = privatize_labels(Y, P_orr, seed=seed)
+
     return fit_privatized_mlr(X, Y_star, P_orr), P_orr, Y_star

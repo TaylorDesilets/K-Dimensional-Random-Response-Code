@@ -2,10 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def get_k_val():
-    '''
-    returns the value of k to input into the graph legend
-    '''
 
 
 def compute_mse(B_hat, B_true):
@@ -53,7 +49,7 @@ def summarize_results(df):
     return summary.reset_index()
 
 
-def plot_results(df):
+def plot_results(df,k):
     summary = df.groupby(["cov_type", "epsilon"]).mean(numeric_only=True).reset_index()
 
     cov_types = summary["cov_type"].unique()
@@ -64,8 +60,8 @@ def plot_results(df):
         # --- MSE plot ---
         plt.figure()
         plt.plot(sub["epsilon"], sub["mse_np"], marker='o', label="Non-private")
-        plt.plot(sub["epsilon"], sub["mse_rrkdr"], marker='o', label=f'"RR-"{get_k_val()}"D-R"')
-        plt.plot(sub["epsilon"], sub["mse_orrkdr"], marker='o', label=f'"ORR-"{get_k_val()}"D-R"')
+        plt.plot(sub["epsilon"], sub["mse_rrkdr"], marker='o', label=f'"RR-"{k}"D-R"')
+        plt.plot(sub["epsilon"], sub["mse_orrkdr"], marker='o', label=f'"ORR-"{k}"D-R"')
 
         plt.xlabel("Epsilon")
         plt.ylabel("MSE")
@@ -77,8 +73,8 @@ def plot_results(df):
         # --- Coverage plot ---
         plt.figure()
         plt.plot(sub["epsilon"], sub["cp_np"], marker='o', label="Non-private")
-        plt.plot(sub["epsilon"], sub["cp_rrkdr"], marker='o', label=f'"RR-"{get_k_val()}"D-R"')
-        plt.plot(sub["epsilon"], sub["cp_orrkdr"], marker='o', label=f'"ORR-"{get_k_val()}"D-R"')
+        plt.plot(sub["epsilon"], sub["cp_rrkdr"], marker='o', label=f'"RR-"{k}"D-R"')
+        plt.plot(sub["epsilon"], sub["cp_orrkdr"], marker='o', label=f'"ORR-"{k}"D-R"')
 
         plt.xlabel("Epsilon")
         plt.ylabel("Coverage Probability")

@@ -27,7 +27,7 @@ def run_simulation():
     print(df.head())
     print("\nSummary:")
     print(summarize_results(df))
-    plot_results(df)
+    plot_results(df,k)
 
 def run_real():
     run_real_data_analysis(
@@ -35,12 +35,11 @@ def run_real():
         sample_size=100000,
         epsilon=0.5,
         random_state=42
-        k=3
     )
 
     print("\nFinished real data analysis.")
 
-def main(mode="real"):
+def main(mode="simulation"):
     if mode == "simulation":
         print("Running simulation")
         run_simulation()
