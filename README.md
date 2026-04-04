@@ -20,16 +20,16 @@ python main.py simulation
 
 I will go over Each File in this Repository and each of their purposes.
 ---
-### 1. RRAlgorithm.py: Implementation of Privatisation Mechanism
-This module simulates, privatizes, and estimates a multinomial logistic regression (MLR) model under a \(k\)-class randomized response mechanism.
+### 1. RRAlgorithm.py: Implementation of Privatization Mechanism
+This module simulates, privatizes, and estimates a multinomial logistic regression (MLR) model under a $k$-class randomized response mechanism. It also includes Fisher information–based inference for improved uncertainty quantification.
 
 ### Main Functions
 
 - **`make_rr_k_matrix(k, epsilon)`**  
-  Constructs the $k \times k$ randomized response matrix $P\$.  
+  Constructs the $k \times k$ randomized response matrix $P$.  
   - Diagonal: probability of reporting the true label  
   - Off-diagonal: probability of misreporting  
-  - Smaller $\epsilon$ → stronger privacy
+  - Smaller $\epsilon$ → stronger privacy  
 
 - **`multinomial_probs(X, B)`**  
   Computes class probabilities from a multinomial logistic regression model (last class as baseline).
@@ -42,143 +42,139 @@ This module simulates, privatizes, and estimates a multinomial logistic regressi
 
 - **`observed_probs(X, B, P)`**  
   Computes observed probabilities  
-  $q_{ij} = \sum_k \Pr(Y^* = j \mid Y = k)\Pr(Y = k \mid X_i)$
+  $$
+  q_{ij} = \sum_k \Pr(Y^* = j \mid Y = k)\Pr(Y = k \mid X_i)
+  $$
 
 - **`neg_loglik(beta_vec, X, Y_star, P, k, lambda_reg)`**  
   Negative log-likelihood for privatized data with L2 regularization.
 
+- **`multinomial_prob_gradients_3class(X, B)`**  
+  Computes gradients of multinomial probabilities with respect to model parameters for the 3-class case.
+
+- **`fisher_information_privatized_3class(X, B, P)`**  
+  Computes the empirical Fisher information matrix:
+  $$
+  I_n(\beta, P) = \frac{1}{n} \sum_{i=1}^n \sum_{j=0}^{k-1}
+  \frac{1}{q_{ij}} \, g_{ij} g_{ij}^\top
+  $$
+  where $ g_{ij} = \nabla_\beta q_{ij} $.
+
+- **`fisher_covariance_privatized_3class(X, B, P)`**  
+  Computes the asymptotic covariance of $ \hat{B} $:
+  $$
+  \text{Cov}(\hat{B}) \approx I_n^{-1} / n
+  $$
+
 - **`fit_privatized_mlr(X, Y_star, P)`**  
-  Estimates model parameters using BFGS optimization. Returns $\hat{B} $, covariance (if available), and optimizer output.
+  Estimates model parameters using BFGS optimization.  
+  - Returns $ \hat{B} $, covariance, and optimizer output  
+  - For the 3-class case, covariance is computed using the Fisher information  
+  - Otherwise falls back to the optimizer’s inverse Hessian  
 
 ### Procedure
 
 1. Generate data with `generate_data`  
 2. Create privacy mechanism with `make_rr_k_matrix`  
 3. Privatize labels using `privatize_labels`  
-4. Estimate parameters with `fit_privatized_mlr`
-
+4. Estimate parameters with `fit_privatized_mlr` using Fisher information 
 ---
 
-### 2. SettingsImplementation.py: Implementation of Benchmarking Method to test our algorithm. 
-
-We compare three settings:
-- Non-private estimation  (NP)
-- Standard $k$-class randomized response (RR)  
-- Our Optimal Method for $k$-class randomized response (ORR-k-D-R)  
+### 2. SettingsImplementation.py: Model Fitting Under Different Privacy Settings
+This module implements three estimation settings for multinomial logistic regression under varying levels of privacy, corresponding to the methods compared in the simulation and real data studies.
 
 ### Main Functions
 
 - **`fit_np(X, Y, k)`**  
-  Setting 1: Non-private model.  
-  Uses the identity matrix (no noise) and fits the model directly.
+  Setting 1: Non-private estimation.  
+  - Uses the identity transition matrix $P = I_k$  
+  - Fits the standard multinomial logistic regression model without privacy  
+  - Serves as a benchmark for comparison  
 
-- **`fit_rr_kdr(X, Y, epsilon, k, seed=None)`**  
-  Setting 2: Standard randomized response.  
-  - Constructs $P$ using `make_rr_k_matrix`  
-  - Privatizes labels $Y \rightarrow Y^*$ 
-  - Fits the model using privatized data  
+- **`fit_rr_kdr(X, Y, epsilon, k, seed)`**  
+  Setting 2: Standard $k$-dimensional randomized response (RR-$k$-D-R).  
+  - Constructs a symmetric randomized response matrix using $\epsilon$  
+  - Privatizes labels $Y \rightarrow Y^*$  
+  - Fits the privatized likelihood using $P_{\text{RR}}$  
 
-- **`fit_orr_kdr(X, Y, epsilon, k, gamma=0.5, seed=None)`**  
-  Setting 3: ORR-k-D-R (OUR METHOD)  
- This function implements the **Optimal Randomized Response (ORR)** mechanism for the \(k\)-dimensional categorical setting by learning a data-driven transition matrix.
-
-  Procedure:
-  - Fit a **non-private multinomial logistic regression** to obtain an initial estimate \( \hat{B} \).
-  - Use a **neural network–based method** to learn an optimal transition matrix \( P_{\text{orr}} \), balancing privacy and utility via `gamma`.
-  - Privatize the labels using the learned matrix: $Y \rightarrow Y^*$.
-  - Fit the **privatized MLR model** using $Y^*$ and $P_{\text{orr}}$.
-  Returns:
-  - `B_hat` — Estimated regression coefficients from the privatized model  
-  - `P_orr` — Learned transition (randomization) matrix  
-  - `Y_star` — Privatized labels  
-
+- **`fit_orr_kdr(X, Y, epsilon, k, gamma, seed)`**  
+  Setting 3: Optimized randomized response (ORR-$k$-D-R).  
+  - Learns a transition matrix $P_{\text{ORR}}$ using a neural network  
+  - The matrix is optimized to balance:
+    - privacy (controlled by $\epsilon$)  
+    - utility (controlled by $\gamma$)  
+  - Privatizes labels using the learned mechanism  
+  - Fits the privatized model using $P_{\text{ORR}}$  
 
 - **`project_rows_to_simplex(A)`**  
-  Ensures each row is positive and sums to 1.
+  Projects each row of a matrix onto the probability simplex.  
+  - Ensures positivity and row sums equal to 1  
+  - Used to enforce valid transition matrices  
+
+### Procedure
+
+1. Choose a privacy setting (non-private, RR, or ORR)  
+2. Construct or learn the transition matrix $P$  
+3. Privatize labels using $Y^* \sim P(Y)$  
+4. Estimate model parameters using `fit_privatized_mlr`  
 
 ---
-### 3. NeuralNet.py: Implements our Neural Network for learning the most optimal transition matrix design P
-### Overview
+### 3. NeuralNet.py: Learning the Optimal Privatization Mechanism
+This module implements a neural network to learn an optimized transition matrix $P_{\text{ORR}}$ for privatized multinomial logistic regression. The learned mechanism balances privacy and utility through a weighted loss function.
 
-We parameterize the transition probabilities using a neural network  
+### Main Components
 
-$\hat{P}_{kj}(\theta) = f^\theta(Y = k, Y^* = j)$,
-where:
-- $Y$ is the true label  
-- $Y^*$ is the privatized label  
-- $f^\theta$ is a neural network that outputs a score for each pair $(k,j)$
+- **`TransitionNet(k, hidden_dim)`**  
+  Neural network model representing $f^\theta(Y, Y^*)$.  
+  - Input: concatenation of one-hot encodings of true label $Y$ and privatized label $Y^*$  
+  - Output: scalar score representing transition likelihood  
+  - Architecture: fully connected network with ReLU activation and sigmoid output  
 
-These scores are normalized row-wise to produce a valid transition matrix $P \in \mathbb{R}^{k \times k}$, where each row sums to 1.
+- **`build_transition_matrix(model, k)`**  
+  Constructs the transition matrix $P$ by evaluating the neural network over all label pairs $(i, j)$.  
+  - Applies softmax row-wise to ensure:
+    - positivity  
+    - rows sum to 1  
+  - Output is a valid $k \times k$ transition matrix  
 
+- **`privacy_loss_fn(beta, P)`**  
+  Encourages privacy by penalizing large diagonal entries of $P$.  
+  - Large diagonal values correspond to revealing the true label  
+  - Also includes an $\ell_2$ penalty on $\beta$ for stability  
 
- CLASS **`TransitionNet`**
-A small neural network that takes:
-- one-hot encoding of the true label $Y$
-- one-hot encoding of the privatized label $Y^*$
+- **`utility_loss_fn(X, Y^*, B, P)`**  
+  Measures utility using the negative log-likelihood of the privatized multinomial logistic regression model.  
+  - Lower values indicate better predictive performance  
+  - Based on:
+  $$
+  Q = \Pi(X, B) P
+  $$
 
-and outputs a scalar score in $(0,1)$ representing the transition weight.
+- **`learn_transition_matrix(X, Y^*, k, gamma, epochs, lr)`**  
+  Learns an optimized transition matrix $P_{\text{ORR}}$ using gradient-based optimization.  
+  - Jointly updates:
+    - neural network parameters $\theta$  
+    - regression coefficients $B$  
+  - Minimizes the objective:
+  $$
+  \mathcal{L}_{\text{total}} = (1 - \gamma)\,\mathcal{L}_{\text{privacy}} + \gamma\,\mathcal{L}_{\text{utility}}
+  $$
 
+### Procedure
 
-**`build_transition_matrix`**
-Constructs the full transition matrix $P$ by:
-- evaluating the network on all $(k,j)$ pairs  
-- applying a softmax across each row to ensure valid probabilities  
-
-
-
-Loss Functions
-
-- **Privacy loss**
-  - Penalizes large diagonal entries of $P$
-  - Intuition: high diagonal values reveal the true label too often  
-
-- **Utility loss**
-  - Penalizes large off-diagonal mass  
-  - Intuition: too much randomization destroys signal  
-
-
-
-**`learn_transition_matrix`**
-
-This is the main function that learns the optimal mechanism.
-
-**Objective:**
-$text{Loss} = -(1 - \gamma)\,\text{Privacy} + \gamma\,\text{Utility}$
-
-- $\gamma \in [0,1]$ controls the privacy–utility tradeoff  
-- Optimization is done using Adam  
-
-The function:
-1. Builds $P(\theta)$ from the neural network  
-2. Computes privacy and utility losses  
-3. Updates network parameters via backpropagation  
-4. Returns the best transition matrix found during training  
-
-### Inputs
-
-- `k`: number of categories  
-- `beta`: MLR coefficients (used in privacy penalty)  
-- `gamma`: tradeoff parameter (default 0.5)  
-- `epochs`: number of training iterations  
-- `lr`: learning rate  
-
-### Output
-
-- `P` (numpy array of shape $k \times k\$:  
-  learned transition matrix satisfying:
-  - non-negative entries  
-  - rows sum to 1  
-
-
-- If $\gamma$ is small → prioritize **privacy** (more noise)  
-- If $\gamma$ is large → prioritize **utility** (less distortion)  
-
-This replaces the infeasible “feasible region optimization” approach by learning a mechanism directly from data using a neural network.
-
+1. Initialize neural network $f^\theta$ and regression parameters $B$  
+2. Construct transition matrix $P(\theta)$ using `build_transition_matrix`  
+3. Compute:
+   - privacy loss from $P$  
+   - utility loss from the privatized likelihood  
+4. Update $\theta$ and $B$ via gradient descent (Adam optimizer)  
+5. Return the transition matrix $P_{\text{ORR}}$ that minimizes the total loss  
 ---
 ### 4. SimulationStudy.py: Runs Our 3 Settings on Simulated Data to Compare Performance
 
-For each simulation run, the file:
+This module evaluates the non-private, RR-$k$-D-R, and ORR-$k$-D-R methods on simulated multinomial logistic regression data under different privacy levels and covariance structures.
+
+For each simulation replicate, the file:
 - Generates multinomial data  
 - Fits each method  
 - Computes mean squared error (MSE)  
@@ -192,7 +188,7 @@ The results are then stored in a pandas data frame for further analysis.
   Runs a single simulation replicate.  
   It:
   - generates data using `generate_data`  
-  - fits the non-private, RR-k-D-R, and ORR-k-D-R models  
+  - fits the non-private, RR-$k$-D-R, and ORR-$k$-D-R models  
   - computes MSE and coverage probability for each method  
   - returns the results as a dictionary  
 
@@ -202,14 +198,19 @@ The results are then stored in a pandas data frame for further analysis.
   - multiple covariance structures  
   - multiple simulation replicates  
 
-  The output is returned as a pandas data frame, where each row corresponds to one simulation replicate.
+  For each covariance structure and replicate:
+  - one dataset is generated and held fixed across all values of $\epsilon$  
+  - the non-private model is fit once on that dataset  
+  - the RR-$k$-D-R and ORR-$k$-D-R methods are then fit across all privacy levels using the same data  
+
+  This setup ensures that differences across $\epsilon$ reflect the effect of the privacy budget rather than variation in the simulated dataset.
+
+  The output is returned as a pandas data frame, where each row corresponds to one replicate at one privacy level.
 
 ---
+### 5. RealDatasetStudy.py: Running Our 3 Settings on a Real Dataset to Compare Performance
 
-### 5. RealDatasetStudy.py: Running our 3 Settings on a real Dataset to Compare Performance
-
-We apply our privatized multinomial logistic regression to a real-world dataset to model predictors for Car Crashes. The goal is to model injury severity while comparing our 3 settings
-
+This module applies the non-private, RR-$k$-D-R, and ORR-$k$-D-R methods to a real-world motor vehicle crash dataset. The goal is to model injury severity using privatized multinomial logistic regression and compare the three estimation settings.
 
 Injury severity is collapsed into three categories:
 - 0: low / no injury  
@@ -219,37 +220,56 @@ Injury severity is collapsed into three categories:
 ### Data Processing
 
 The dataset is loaded from `person.csv` and processed as follows:
-- Injury severity (`INJ_SEV`) is mapped into 3 classes ( 0-low injury, 1-medium injury, 2-fatal injury)
+- Injury severity (`INJ_SEV`) is mapped into 3 classes:
+  - 0 = low / no injury  
+  - 1 = medium injury  
+  - 2 = fatal  
 - A subset of predictors is selected:
   - age  
   - sex  
   - alcohol involvement  
   - drug involvement  
-- Age is standardized  
+- Missing values are removed  
+- Age is restricted to a valid range and standardized  
 - A random subsample is taken for computational efficiency  
 - Predictors are one-hot encoded  
 
 ### Main Functions
 
+- **`collapse_severity(x)`**  
+  Maps the original injury severity variable into the 3-category response used in the analysis.
+
+- **`load_person_data(filepath="person.csv")`**  
+  Loads the raw dataset from `person.csv`.
+
 - **`prepare_real_data(filepath, sample_size, random_state)`**  
   Loads and preprocesses the dataset, returning:
   - predictor matrix $X$
-  - response vector $Y$ 
+  - response vector $Y$
   - processed DataFrame  
 
-- **`fit_private_model(X, Y, epsilon, seed)`**  
-  Applies randomized response to the labels and fits the privatized multinomial logistic regression model.
+- **`print_class_counts(Y)`**  
+  Prints the class distribution of the response variable to assess imbalance in the real dataset.
 
 - **`fit_nonprivate_model(X, Y)`**  
-  Fits the model without any privacy mechanism (baseline comparison).
+  Fits the multinomial logistic regression model without any privacy mechanism.  
+  - Uses the identity transition matrix  
+  - Serves as the non-private baseline  
 
-- **`run_real_data_analysis(filepath, sample_size, epsilon, random_state)`**  
-  Runs the full pipeline:
-  - prepares the data  
-  - fits private and non-private models  
-  - prints class counts and optimization results  
-  - returns all outputs  
+- **`fit_private_rr_model(X, Y, epsilon, seed)`**  
+  Applies the standard randomized response mechanism to the labels and fits the privatized multinomial logistic regression model.
 
+- **`fit_private_orr_model(X, Y, gamma, seed)`**  
+  Learns a transition matrix using the neural network–based ORR mechanism, privatizes the labels using the learned matrix, and fits the privatized multinomial logistic regression model.
+
+- **`run_real_data_analysis(filepath, sample_size, epsilon, gamma, random_state)`**  
+  Runs the full real-data pipeline:
+  - prepares the dataset  
+  - prints class counts  
+  - fits the non-private, RR, and ORR models  
+  - prints optimizer success messages  
+  - prints the RR and learned ORR transition matrices  
+  - returns all outputs in a structured dictionary  
 ---
 ### 6. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
 
@@ -282,28 +302,38 @@ The main quantities of interest are:
 
 ### 7. main.py: Main Entry Point for Running the Evaluation
 
-NOTE: to run the entire loop, you only need to run this file, you need to input mode: "simulation" or "real" to run either the Simulated Data or the Real Dataset Implementation
+This file serves as the main entry point for running both the simulation study and the real dataset analysis.
+
+To run the full pipeline, execute this file and specify the mode:
+- `"simulation"` → runs the simulation study  
+- `"real"` → runs the real dataset analysis  
+
+If no mode is provided, the simulation study runs by default.
 
 ### Main Functions
 
-- **`run_simulation()`** 
-  -Sets the number of classes $k$ and covariates $d$
-  - Defines the true coefficient matrix $B_{\text{true}}$
+- **`run_simulation()`**  
+  - Sets the number of classes $k$ and covariates $d$  
+  - Defines the true coefficient matrix $B_{\text{true}}$  
   - Calls `run_simulation_study` to generate results across:
-    - multiple privacy levels $\epsilon$
+    - multiple privacy levels $\epsilon$  
     - multiple covariance structures  
     - multiple simulation replicates  
   - Prints:
     - the first few rows of the results  
-    - a summarized table of MSE and coverage  
-  - Calls `plot_results` to visualize performance
- 
-- **`run_real()`**
-  - Runs RealDatasetStudy functions and prints results
- 
-- **`main(mode=...)`**
-  - Will either run the suimualtion or RealDataset Study based on wether you give it "real" or "simulation" as an argument for mode
+    - a summarized table of MSE and coverage probability  
+  - Calls `plot_results` to visualize performance across methods  
 
+- **`run_real()`**  
+  - Calls `run_real_data_analysis` to run the full real dataset pipeline  
+  - Uses specified values of $\epsilon$ and $\gamma$  
+  - Prints model fit results and learned transition matrices  
+
+- **`main(mode=...)`**  
+  - Controls which pipeline is executed:
+    - `"simulation"` → runs `run_simulation()`  
+    - `"real"` → runs `run_real()`  
+  - Raises an error if an invalid mode is provided  
 
 
 
