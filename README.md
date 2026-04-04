@@ -21,15 +21,13 @@ python main.py simulation
 I will go over Each File in this Repository and each of their purposes.
 ---
 ### 1. RRAlgorithm.py: Implementation of Privatization Mechanism
-This module simulates, privatizes, and estimates a multinomial logistic regression (MLR) model under a $k$-class randomized response mechanism. It also includes Fisher information–based inference for improved uncertainty quantification.
+This module simulates, privatizes, and estimates a multinomial logistic regression (MLR) model under a $k$-class randomized response mechanism. It also includes Fisher information inference for quantifying uncertainty.
 
 ### Main Functions
 
 - **`make_rr_k_matrix(k, epsilon)`**  
   Constructs the $k \times k$ randomized response matrix $P$.  
-  - Diagonal: probability of reporting the true label  
-  - Off-diagonal: probability of misreporting  
-  - Smaller $\epsilon$ → stronger privacy  
+  - Smaller $\epsilon$ → stronger privacy & worse utility 
 
 - **`multinomial_probs(X, B)`**  
   Computes class probabilities from a multinomial logistic regression model (last class as baseline).
@@ -42,9 +40,7 @@ This module simulates, privatizes, and estimates a multinomial logistic regressi
 
 - **`observed_probs(X, B, P)`**  
   Computes observed probabilities  
-  $$
-  q_{ij} = \sum_k \Pr(Y^* = j \mid Y = k)\Pr(Y = k \mid X_i)
-  $$
+  $q_{ij} = \sum_k \Pr(Y^* = j \mid Y = k)\Pr(Y = k \mid X_i)$
 
 - **`neg_loglik(beta_vec, X, Y_star, P, k, lambda_reg)`**  
   Negative log-likelihood for privatized data with L2 regularization.
@@ -54,17 +50,12 @@ This module simulates, privatizes, and estimates a multinomial logistic regressi
 
 - **`fisher_information_privatized_3class(X, B, P)`**  
   Computes the empirical Fisher information matrix:
-  $$
-  I_n(\beta, P) = \frac{1}{n} \sum_{i=1}^n \sum_{j=0}^{k-1}
-  \frac{1}{q_{ij}} \, g_{ij} g_{ij}^\top
-  $$
+  $I_n(\beta, P) = \frac{1}{n} \sum_{i=1}^n \sum_{j=0}^{k-1}\frac{1}{q_{ij}} \, g_{ij} g_{ij}^\top$
   where $ g_{ij} = \nabla_\beta q_{ij} $.
 
 - **`fisher_covariance_privatized_3class(X, B, P)`**  
   Computes the asymptotic covariance of $ \hat{B} $:
-  $$
-  \text{Cov}(\hat{B}) \approx I_n^{-1} / n
-  $$
+  $\text{Cov}(\hat{B}) \approx I_n^{-1} / n$
 
 - **`fit_privatized_mlr(X, Y_star, P)`**  
   Estimates model parameters using BFGS optimization.  
@@ -81,7 +72,7 @@ This module simulates, privatizes, and estimates a multinomial logistic regressi
 ---
 
 ### 2. SettingsImplementation.py: Model Fitting Under Different Privacy Settings
-This module implements three estimation settings for multinomial logistic regression under varying levels of privacy, corresponding to the methods compared in the simulation and real data studies.
+This module implements three settings for multinomial logistic regression under varying levels of privacy, corresponding to the methods compared in the simulation and real data studies.
 
 ### Main Functions
 
@@ -146,9 +137,7 @@ This module implements a neural network to learn an optimized transition matrix 
   Measures utility using the negative log-likelihood of the privatized multinomial logistic regression model.  
   - Lower values indicate better predictive performance  
   - Based on:
-  $$
-  Q = \Pi(X, B) P
-  $$
+    $Q = \Pi(X, B) P$
 
 - **`learn_transition_matrix(X, Y^*, k, gamma, epochs, lr)`**  
   Learns an optimized transition matrix $P_{\text{ORR}}$ using gradient-based optimization.  
@@ -156,9 +145,7 @@ This module implements a neural network to learn an optimized transition matrix 
     - neural network parameters $\theta$  
     - regression coefficients $B$  
   - Minimizes the objective:
-  $$
-  \mathcal{L}_{\text{total}} = (1 - \gamma)\,\mathcal{L}_{\text{privacy}} + \gamma\,\mathcal{L}_{\text{utility}}
-  $$
+    $\mathcal{L}_{\text{total}} = (1 - \gamma)\,\mathcal{L}_{\text{privacy}} + \gamma\,\mathcal{L}_{\text{utility}}$
 
 ### Procedure
 
@@ -180,7 +167,7 @@ For each simulation replicate, the file:
 - Computes mean squared error (MSE)  
 - Computes coverage probability (CP)  
 
-The results are then stored in a pandas data frame for further analysis.
+The results are then stored in a pandas data frame.
 
 ### Main Functions
 
@@ -205,7 +192,7 @@ The results are then stored in a pandas data frame for further analysis.
 
   This setup ensures that differences across $\epsilon$ reflect the effect of the privacy budget rather than variation in the simulated dataset.
 
-  The output is returned as a pandas data frame, where each row corresponds to one replicate at one privacy level.
+  The output is returned as a pandas data frame.
 
 ---
 ### 5. RealDatasetStudy.py: Running Our 3 Settings on a Real Dataset to Compare Performance
@@ -269,7 +256,7 @@ The dataset is loaded from `person.csv` and processed as follows:
   - fits the non-private, RR, and ORR models  
   - prints optimizer success messages  
   - prints the RR and learned ORR transition matrices  
-  - returns all outputs in a structured dictionary  
+  - returns all outputs in a dictionary  
 ---
 ### 6. Statistics.py: Performance Measures and Summary Statistics Tools to Display Results
 
@@ -296,11 +283,9 @@ The main quantities of interest are:
   - MSE versus $\epsilon$  
   - Coverage probability versus $\epsilon$
 
-  Separate plots are created for each covariance structure.
-
 ---
 
-### 7. main.py: Main Entry Point for Running the Evaluation
+### 7. main.py: Running the Evaluation
 
 This file serves as the main entry point for running both the simulation study and the real dataset analysis.
 
@@ -329,11 +314,10 @@ If no mode is provided, the simulation study runs by default.
   - Uses specified values of $\epsilon$ and $\gamma$  
   - Prints model fit results and learned transition matrices  
 
-- **`main(mode=...)`**  
-  - Controls which pipeline is executed:
+- **`main()`**  
+  - Controls which is executed:
     - `"simulation"` → runs `run_simulation()`  
-    - `"real"` → runs `run_real()`  
-  - Raises an error if an invalid mode is provided  
+    - `"real"` → runs `run_real()`   
 
 
 
