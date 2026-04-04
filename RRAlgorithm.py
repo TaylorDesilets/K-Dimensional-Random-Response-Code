@@ -34,6 +34,10 @@ def multinomial_probs(X, B):
     return np.hstack([probs_nonbaseline, probs_baseline])
 
 
+    Pi = multinomial_probs(X, B)   # (n, k)
+    Q = Pi @ P                     # (n, k)
+    return Q
+
 def generate_data(n, d, B, cov_type="independent", seed=None):
     """
     Generate X and Y from a k-class multinomial logistic model.
@@ -75,7 +79,6 @@ def generate_data(n, d, B, cov_type="independent", seed=None):
 
     return X, Y, probs
 
-
 def make_rr_k_matrix(k, epsilon):
     """
     Symmetric k-class randomized response matrix.
@@ -95,7 +98,6 @@ def make_rr_k_matrix(k, epsilon):
     P = np.full((k, k), p_off)
     np.fill_diagonal(P, p_diag)
     return P
-
 
 def privatize_labels(Y, P, seed=None):
     """
@@ -119,7 +121,6 @@ def privatize_labels(Y, P, seed=None):
     Y_star = np.array([rng.choice(P.shape[1], p=P[y]) for y in Y])
     return Y_star
 
-
 def observed_probs(X, B, P):
     """
     Observed privatized probabilities:
@@ -138,7 +139,6 @@ def observed_probs(X, B, P):
     Pi = multinomial_probs(X, B)   # (n, k)
     Q = Pi @ P                     # (n, k)
     return Q
-
 
 def neg_loglik(beta_vec, X, Y_star, P, k,lambda_reg=1e-1):
     """
@@ -171,13 +171,108 @@ def neg_loglik(beta_vec, X, Y_star, P, k,lambda_reg=1e-1):
 
     ll = np.sum(np.log(Q[np.arange(len(Y_star)), Y_star]))
 
-    # 🔑 L2 regularization
+    #L2 regularization
     penalty = lambda_reg * np.sum(B**2)
 
     return -ll + penalty
 
+def multinomial_prob_gradients_3class(X, B):
+    """
+    Gradients of pi_i0, pi_i1, pi_i2 with respect to vec(B),
+    where B has shape (2, d) and class 2 is the baseline.
 
-def fit_privatized_mlr(X, Y_star, P):
+    Returns
+    -------
+    grads : ndarray of shape (n, 3, 2*d)
+        grads[i, k, :] = gradient of pi_ik wrt vec(B)
+        with vec(B) = [beta0, beta1] concatenated.
+    """
+    n, d = X.shape
+    Pi = multinomial_probs(X, B)   # (n, 3)
+
+    pi0 = Pi[:, 0]
+    pi1 = Pi[:, 1]
+    pi2 = Pi[:, 2]
+
+    grads = np.zeros((n, 3, 2 * d))
+
+    for i in range(n):
+        x = X[i]
+
+        # d pi0 / d beta0 , d pi0 / d beta1
+        dpi0_dbeta0 = pi0[i] * (1.0 - pi0[i]) * x
+        dpi0_dbeta1 = -pi0[i] * pi1[i] * x
+
+        # d pi1 / d beta0 , d pi1 / d beta1
+        dpi1_dbeta0 = -pi0[i] * pi1[i] * x
+        dpi1_dbeta1 = pi1[i] * (1.0 - pi1[i]) * x
+
+        # d pi2 / d beta0 , d pi2 / d beta1
+        dpi2_dbeta0 = -pi0[i] * pi2[i] * x
+        dpi2_dbeta1 = -pi1[i] * pi2[i] * x
+
+        grads[i, 0, :] = np.concatenate([dpi0_dbeta0, dpi0_dbeta1])
+        grads[i, 1, :] = np.concatenate([dpi1_dbeta0, dpi1_dbeta1])
+        grads[i, 2, :] = np.concatenate([dpi2_dbeta0, dpi2_dbeta1])
+
+    return grads
+
+def fisher_information_privatized_3class(X, B, P, ridge=1e-8):
+    """
+    Empirical Fisher information for privatized 3-class multinomial logit.
+
+    Parameters
+    ----------
+    X : ndarray of shape (n, d)
+    B : ndarray of shape (2, d)
+    P : ndarray of shape (3, 3)
+        P[k, j] = Pr(Y* = j | Y = k)
+    ridge : float
+        Small ridge added for numerical stability.
+
+    Returns
+    -------
+    I_n : ndarray of shape (2*d, 2*d)
+        Empirical Fisher information matrix:
+            (1/n) sum_i sum_j (1/q_ij) g_ij g_ij^T
+    """
+    n, d = X.shape
+
+    if B.shape[0] != 2 or P.shape != (3, 3):
+        raise ValueError("This function is written for the 3-class case only.")
+
+    Q = observed_probs(X, B, P)               # (n, 3)
+    Q = np.clip(Q, 1e-12, None)
+
+    grad_pi = multinomial_prob_gradients_3class(X, B)   # (n, 3, 2d)
+
+    I_n = np.zeros((2 * d, 2 * d))
+
+    for i in range(n):
+        for j in range(3):
+            # g_ij = sum_k P[k,j] * grad pi_ik
+            g_ij = np.zeros(2 * d)
+            for k in range(3):
+                g_ij += P[k, j] * grad_pi[i, k, :]
+
+            I_n += np.outer(g_ij, g_ij) / Q[i, j]
+
+    I_n /= n
+    I_n += ridge * np.eye(2 * d)
+
+    return I_n
+
+def fisher_covariance_privatized_3class(X, B, P, ridge=1e-8):
+    """
+    Asymptotic covariance of vec(B_hat):
+        cov(B_hat) ≈ I_n^{-1} / n
+    """
+    n = X.shape[0]
+    I_n = fisher_information_privatized_3class(X, B, P, ridge=ridge)
+    cov = np.linalg.inv(I_n) / n
+    return cov
+
+def fit_privatized_mlr(X, Y_star, P, lambda_reg=1e-1):
     """
     Estimate B by maximizing the privatized likelihood.
 
@@ -186,12 +281,14 @@ def fit_privatized_mlr(X, Y_star, P):
     X : ndarray of shape (n, d)
     Y_star : ndarray of shape (n,)
     P : ndarray of shape (k, k)
+    lambda_reg : float
+        L2 regularization strength.
 
     Returns
     -------
     B_hat : ndarray of shape (k-1, d)
     cov : ndarray or None
-        Approximate covariance matrix for vec(B_hat).
+        Covariance matrix for vec(B_hat).
     result : OptimizeResult
         scipy optimization result.
     """
@@ -203,19 +300,19 @@ def fit_privatized_mlr(X, Y_star, P):
     result = minimize(
         neg_loglik,
         init,
-        args=(X, Y_star, P, k),
+        args=(X, Y_star, P, k, lambda_reg),
         method="BFGS"
     )
 
     B_hat = result.x.reshape((k - 1, d))
 
     cov = None
-    if hasattr(result, "hess_inv"):
-        try:
+    try:
+        if k == 3:
+            cov = fisher_covariance_privatized_3class(X, B_hat, P)
+        elif hasattr(result, "hess_inv"):
             cov = np.asarray(result.hess_inv)
-        except Exception:
-            cov = None
+    except Exception:
+        cov = None
 
     return B_hat, cov, result
-
-
